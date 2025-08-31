@@ -16,7 +16,7 @@ from products.models import Product
 class PublishProductCreatedTest(TestCase):
     @patch('products.service_product.pika.BlockingConnection')
     def test_publish_product_created_success(self, mock_connection):
-        """Test de publication d'un produit créé"""
+        """Test de publication d'un produit """
         # Mock de la connexion RabbitMQ
         mock_channel = MagicMock()
         mock_connection_instance = MagicMock()
