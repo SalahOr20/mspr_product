@@ -1,0 +1,88 @@
+name: Product Service CI
+
+on:
+  push:
+    branches: [ main, dev ]
+    paths:
+      - 'Product/**'
+  pull_request:
+    branches: [ main, dev ]
+    paths:
+      - 'Product/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      rabbitmq:
+        image: rabbitmq:3-management
+        env:
+          RABBITMQ_DEFAULT_USER: guest
+          RABBITMQ_DEFAULT_PASS: guest
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5672:5672
+          - 15672:15672
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      working-directory: Product/product_mspr
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run migrations
+      working-directory: Product/product_mspr
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        RABBITMQ_HOST: localhost
+        RABBITMQ_PORT: 5672
+      run: |
+        python manage.py makemigrations
+        python manage.py migrate
+
+    - name: Run service tests
+      working-directory: Product/product_mspr
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        RABBITMQ_HOST: localhost
+        RABBITMQ_PORT: 5672
+        DJANGO_SETTINGS_MODULE: myproject.settings
+      run: |
+        python manage.py test products.tests.test_service_product --verbosity=2
+
+    - name: Run all tests
+      working-directory: Product/product_mspr
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        RABBITMQ_HOST: localhost
+        RABBITMQ_PORT: 5672
+        DJANGO_SETTINGS_MODULE: myproject.settings
+      run: |
+        python manage.py test --verbosity=2
